@@ -28,9 +28,14 @@ def set_last_table(tablename):
     client.put(entity)
 
 if __name__ == '__main__':
-    args = sys.argv
-    if len(args) == 2 and args[1] == 'get':
-        get_last_table()
-    elif len(args) == 3 and args[1] == 'set':
-        set_last_table(args[2])
-            
+    try:
+        args = sys.argv
+        if len(args) == 2 and args[1] == 'get':
+            get_last_table()
+        elif len(args) == 3 and args[1] == 'set':
+            set_last_table(args[2])
+        else:
+            print 'unknown command option.'
+            sys.exit(-1)
+    except:
+        sys.exit(-1)

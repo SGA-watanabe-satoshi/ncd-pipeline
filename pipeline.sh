@@ -8,8 +8,8 @@ segment_table=$env.user_segment
 # Create new Classification table name by datetime
 new_classification_table=$(date -u +%Y%m%d_%H%M%S)_classification
 # Load Old Classification table name from DataStore
-old_classification_table=
-diff_table=diff_classification
+old_classification_table=$(python DatastoreUtil.py get)
+diff_table="diff_classification"
 
 declare -a segment_files=(
     "gs://prod-classification-data/*",
@@ -24,9 +24,9 @@ declare -a segment_files=(
 bq rm -f $segment_table
 bq mk --schema user_id:string,class:string -t $segment_table
 
-for ((i=0; i < ${#segment_files[@];i++})) {
-    bq load $segment_table $segment_files[i]
-}
+for segment_file in ${segment_files[@]}; do
+    bq load $segment_table $segment_file
+done
 
 #
 # Step 2 Create new classification table
@@ -47,14 +47,30 @@ bq query --use-legacy-sql=False --distination-table=$diff_table \
 \
 SELECT \
   `$new_classification_table`.user_id, \
+  `$old_classification_table`.ussr_id as old_user_id, \
   `$new_classification_table`.classes as new_classes, \
   `$old_classification_table`.classes as old_classes \
 FROM `$old_classification_table` \
-INNER JOIN `$new_classification_table` ON `$old_classification_table`.user_id = `$new_classification_table`.user_id \
+FULL OUTER JOIN `$new_classification_table` ON `$old_classification_table`.user_id = `$new_classification_table`.user_id \
 WHERE \
-  ARRAY_TO_STRING(ARRAY_SORT(`$old_classification_table`.classes),' ') != ARRAY_TO_STRING(ARRAY_SORT(`$new_classification_table`.classes),' '); \
+  ARRAY_TO_STRING(ARRAY_SORT(`$old_classification_table`.classes),' ') != ARRAY_TO_STRING(ARRAY_SORT(`$new_classification_table`.classes),' ') OR \
+  ARRAY_LENGTH(`$old_classification_table`.classes) = 0 OR \
+  ARRAY_LENGTH(`$new_classification_table`.classes) = 0; \  
 "
 
 #
 # Step 4 Start DataFlow operation BigQuery(diff_table) to DataStore(user_classification)
 #
+
+
+#
+# Step 5 Update current classification table name
+#
+python DatastoreUtil.py set $new_classification_table
+
+#
+# Step 6 delete unnecessary tables
+#
+bq rm -f $segment_table
+bq rm -f $old_classification_table
+bq rm -f $diff_table

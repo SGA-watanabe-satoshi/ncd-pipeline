@@ -26,16 +26,16 @@ class ClassificationUpdateDoFn(beam.DoFn):
         """update or delete datastore entity"""
         logger.debug(element)
 
-        # key = self._client.key(self._kind)
-        # entity = datastore.Entity(key)
-        # entity.update({
-        #     'country': element.get('country'),
-        #     'num': element.get('num'),
-        #     'str': element.get('str'),
-        #     'created': datetime.now()
-        # })
-
-        # self._client.put(entity)
+        # insert or update
+        if element.get('user_id') is not None:
+            key = self._client.key(self._kind, element.get('user_id'))
+            entity = datastore.Entity(key)
+            entity.update({
+                'user_id': element.get('user_id'),
+                'classes': element.get('new_classes'),
+                'insert_time': datetime.now()
+            })
+            self._client.put(entity)
 
 
 def run(argv=None):

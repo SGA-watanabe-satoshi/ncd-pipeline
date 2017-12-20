@@ -54,8 +54,7 @@ FROM `$old_classification_table` \
 FULL OUTER JOIN `$new_classification_table` ON `$old_classification_table`.user_id = `$new_classification_table`.user_id \
 WHERE \
   ARRAY_TO_STRING(ARRAY_SORT(`$old_classification_table`.classes),' ') != ARRAY_TO_STRING(ARRAY_SORT(`$new_classification_table`.classes),' ') OR \
-  ARRAY_LENGTH(`$old_classification_table`.classes) = 0 OR \
-  ARRAY_LENGTH(`$new_classification_table`.classes) = 0; \  
+  ARRAY_LENGTH(`$old_classification_table`.classes) = 0; \ 
 "
 
 #

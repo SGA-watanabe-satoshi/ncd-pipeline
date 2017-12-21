@@ -6,11 +6,6 @@ import logging
 from google.cloud import datastore
 from datetime import datetime
 
-# namespace = 'watanabe'
-# kind = 'Sample'
-# target_key = '5695159920492544'
-# target_property = 'last_proc_table'
-
 logger = logging.getLogger(__name__)
 
 def get_entity_value(namespace, kind, key, prop):

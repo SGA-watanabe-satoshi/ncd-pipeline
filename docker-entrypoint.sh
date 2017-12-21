@@ -3,7 +3,7 @@
 # Fail hard and fast
 set -eo pipefail
 
-### from ENV parameters
+### from ENV parameters (sample)
 GOOGLE_PROJECT_ID="ace-ripsaw-671"
 BIGQUERY_DATASET="watanabe_dataset"
 DATASTORE_NAMESPACE="watanabe"

@@ -59,18 +59,24 @@ def run(argv=None):
                         required=True,
                         help='Input BigQuery table to process specified as: '
                              'PROJECT:DATASET.TABLE or DATASET.TABLE.')
-    # Target DataStore
-    parser.add_argument('--output',
-                        dest='output',
+    # Target DataStore's namespace
+    parser.add_argument('--namespace',
+                        dest='namespace',
                         required=True,
-                        help='Output destination DataStore')
+                        help='Output destination DataStore namespace')
+
+    # Target DataStore's kind
+    parser.add_argument('--kind',
+                        dest='kind',
+                        default='user_classification',
+                        help='Output destination DataStore kind (default:user_classification)')
 
     known_args, pipeline_args = parser.parse_known_args(argv)
     pipeline_options = PipelineOptions(pipeline_args)
     pipeline_options.view_as(SetupOptions).save_main_session = True
 
-    namespace = known_args.output.split(':')[0]
-    kind = known_args.output.split(':')[1]
+    namespace = known_args.namespace
+    kind = known_args.kind
 
     p = beam.Pipeline(options=pipeline_options)
 

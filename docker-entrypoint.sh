@@ -143,23 +143,23 @@ run_classifier_data_transfer_pipeline() {
             )); \
             \
             SELECT \
-            `$new_classification_table`.user_id, \
-            `$last_classification_table`.ussr_id as old_user_id, \
-            `$new_classification_table`.classes as new_classes, \
-            `$last_classification_table`.classes as old_classes \
+                `$new_classification_table`.user_id, \
+                `$last_classification_table`.ussr_id as old_user_id, \
+                `$new_classification_table`.classes as new_classes, \
+                `$last_classification_table`.classes as old_classes \
             FROM `$last_classification_table` \
-            FULL OUTER JOIN `$new_classification_table` ON `$last_classification_table`.user_id = `$new_classification_table`.user_id \
+                FULL OUTER JOIN `$new_classification_table` ON `$last_classification_table`.user_id = `$new_classification_table`.user_id \
             WHERE \
-            ARRAY_TO_STRING(ARRAY_SORT(`$last_classification_table`.classes),' ') != ARRAY_TO_STRING(ARRAY_SORT(`$new_classification_table`.classes),' ') OR \
-            ARRAY_LENGTH(`$last_classification_table`.classes) = 0; \ 
+                ARRAY_TO_STRING(ARRAY_SORT(`$last_classification_table`.classes),' ') != ARRAY_TO_STRING(ARRAY_SORT(`$new_classification_table`.classes),' ') OR \
+                ARRAY_LENGTH(`$last_classification_table`.classes) = 0; \ 
             "
         else
             bq query --use-legacy-sql=False --distination-table=$diff_table \
             "SELECT \
-            `$new_classification_table`.user_id, \
-            null as old_user_id, \
-            `$new_classification_table`.classes as new_classes, \
-            [] as old_classes \
+                `$new_classification_table`.user_id, \
+                null as old_user_id, \
+                `$new_classification_table`.classes as new_classes, \
+                [] as old_classes \
             FROM `$new_classification_table`; \ 
             "
         fi

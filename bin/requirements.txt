@@ -1,3 +1,4 @@
+gcloud
 google-cloud
 google-cloud-dataflow
 six==1.10.0

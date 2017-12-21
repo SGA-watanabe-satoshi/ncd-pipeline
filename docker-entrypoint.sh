@@ -80,7 +80,8 @@ run_classifier_data_transfer_pipeline() {
     # Create new Classification table name by datetime
     local new_classification_table=$BIGQUERY_DATASET.$(date -u +%Y%m%d_%H%M%S)_classification
     # Load last Classification table name from DataStore
-    local last_classification_table=$BIGQUERY_DATASET.$(./bin/ds_util.py get --key=$DATASTORE_LAST_TABLE_KEY --namespace=$DATASTORE_NAMESPACE --kind=$DATASTORE_KIND --prop=$DATASTORE_LAST_TABLE_PROP)
+    local last_classification_table_name = $(./bin/ds_util.py get --key=$DATASTORE_LAST_TABLE_KEY --namespace=$DATASTORE_NAMESPACE --kind=$DATASTORE_KIND --prop=$DATASTORE_LAST_TABLE_PROP)
+    local last_classification_table=$BIGQUERY_DATASET.$last_classification_table_name
 
     # Use BlockingDataflowPipelineRunner by default so that the we wait for the
     # launched job to finish. This will help prevent us from running the same
@@ -88,12 +89,13 @@ run_classifier_data_transfer_pipeline() {
     DATAFLOW_RUNNER=${DATAFLOW_RUNNER:-BlockingDataflowPipelineRunner}
     DATAFLOW_STREAMING=${DATAFLOW_STREAMING:-false}
 
-    if [ -z "$DATASTORE_NAMESPACE" -o -z "$INPUT_FILES" ]; then
-        echo "Missing required environment variable: Cannot start classifier data transfer pipeline" >&2
-        echo "  DATASTORE_NAMESPACE:   $DATASTORE_NAMESPACE" >&2
-        echo "  INPUT_FILES:           $INPUT_FILES" >&2
-        exit 1
-    fi
+    ## Implement correctly later...
+    # if [ -z "$DATASTORE_NAMESPACE" -o -z "$INPUT_FILES" ]; then
+    #     echo "Missing required environment variable: Cannot start classifier data transfer pipeline" >&2
+    #     echo "  DATASTORE_NAMESPACE:   $DATASTORE_NAMESPACE" >&2
+    #     echo "  INPUT_FILES:           $INPUT_FILES" >&2
+    #     exit 1
+    # fi
 
     old_hash=$(get_old_hash)
     # INPUT_FILES is a comma separated list of patterns. Replace the comma
@@ -130,25 +132,37 @@ run_classifier_data_transfer_pipeline() {
         #
         echo "Step 3: Create a diff table for new_classification and last_classification"
 
-        bq query --use-legacy-sql=False --distination-table=$diff_table \
-        "CREATE TEMPORARY FUNCTION ARRAY_SORT(arr ARRAY<STRING>) \
-        RETURNS ARRAY<STRING> AS (( \
-            SELECT ARRAY_AGG(x) FROM( \
-            SELECT x FROM UNNEST(arr) AS x ORDER BY x \
-            ) \
-        )); \
-        \
-        SELECT \
-        `$new_classification_table`.user_id, \
-        `$last_classification_table`.ussr_id as old_user_id, \
-        `$new_classification_table`.classes as new_classes, \
-        `$last_classification_table`.classes as old_classes \
-        FROM `$last_classification_table` \
-        FULL OUTER JOIN `$new_classification_table` ON `$last_classification_table`.user_id = `$new_classification_table`.user_id \
-        WHERE \
-        ARRAY_TO_STRING(ARRAY_SORT(`$last_classification_table`.classes),' ') != ARRAY_TO_STRING(ARRAY_SORT(`$new_classification_table`.classes),' ') OR \
-        ARRAY_LENGTH(`$last_classification_table`.classes) = 0; \ 
-        "
+        # If there is no table processed last, new_classification table is outputted as it is
+        if [ $last_classification_table_name ]; then
+            bq query --use-legacy-sql=False --distination-table=$diff_table \
+            "CREATE TEMPORARY FUNCTION ARRAY_SORT(arr ARRAY<STRING>) \
+            RETURNS ARRAY<STRING> AS (( \
+                SELECT ARRAY_AGG(x) FROM( \
+                SELECT x FROM UNNEST(arr) AS x ORDER BY x \
+                ) \
+            )); \
+            \
+            SELECT \
+            `$new_classification_table`.user_id, \
+            `$last_classification_table`.ussr_id as old_user_id, \
+            `$new_classification_table`.classes as new_classes, \
+            `$last_classification_table`.classes as old_classes \
+            FROM `$last_classification_table` \
+            FULL OUTER JOIN `$new_classification_table` ON `$last_classification_table`.user_id = `$new_classification_table`.user_id \
+            WHERE \
+            ARRAY_TO_STRING(ARRAY_SORT(`$last_classification_table`.classes),' ') != ARRAY_TO_STRING(ARRAY_SORT(`$new_classification_table`.classes),' ') OR \
+            ARRAY_LENGTH(`$last_classification_table`.classes) = 0; \ 
+            "
+        else
+            bq query --use-legacy-sql=False --distination-table=$diff_table \
+            "SELECT \
+            `$new_classification_table`.user_id, \
+            null as old_user_id, \
+            `$new_classification_table`.classes as new_classes, \
+            [] as old_classes \
+            FROM `$new_classification_table`; \ 
+            "
+        fi
 
         #
         # Step 4: Start the DataFlow operation to synchronize BigQuery table and DataStore
@@ -180,9 +194,11 @@ run_classifier_data_transfer_pipeline() {
         echo "Step 7: delete unnecessary BigQuery tables"
 
         bq rm -f $segment_table
-        bq rm -f $last_classification_table
         bq rm -f $diff_table
-        
+        if [ $last_classification_table ]; then
+            bq rm -f $last_classification_table
+        fi
+
     else
         echo "Skipping pipeline run, because it looks like nothing has changed"
     fi
@@ -202,6 +218,7 @@ case "$1" in
             -e GOOGLE_PROJECT_ID=\"NameOfProject\" \\
             -e DATAFLOW_TEMP_LOCATION=gs://bucketName \\
             -e INPUT_FILES=gs://bucketName/inputFolder \\
+            -e BIGQUERY_DATASET=bq_dataset \\
             -e DATASTORE_NAMESPACE=namespace \\
             ncd-pipeline run_classifier_data_transfer_pipeline"
         ;;

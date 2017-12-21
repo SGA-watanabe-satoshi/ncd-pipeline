@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import argparse
 import sys
+import logging
 from google.cloud import datastore
 from datetime import datetime
 
@@ -10,13 +11,21 @@ from datetime import datetime
 # target_key = '5695159920492544'
 # target_property = 'last_proc_table'
 
+logger = logging.getLogger(__name__)
+
 def get_entity_value(namespace, kind, key, prop):
     client = datastore.Client(namespace=namespace)
     target_key = client.key(kind,int(key) if key.isdigit() else key)
     entity = client.get(target_key)
 
-    if entity.get(prop):
-        print entity.get(prop)
+    if entity:
+        if entity.get(prop):
+            print entity.get(prop)
+        else:
+            print ''
+            logger.warning('The target value is not set.')
+    else:
+        raise Exception('The target key does not exist.')
 
 def set_entity_value(namespace, kind, key, prop, value):
     client = datastore.Client(namespace=namespace)
@@ -29,6 +38,8 @@ def set_entity_value(namespace, kind, key, prop, value):
     client.put(entity)
 
 if __name__ == '__main__':
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.INFO)
     try:
         parser = argparse.ArgumentParser()
         parser.add_argument('cmd',
@@ -74,5 +85,6 @@ if __name__ == '__main__':
             set_entity_value(namespace,kind,key,prop,value)
         else:
             sys.exit(-1)
-    except:
+    except Exception as e:
+        logger.error(e)
         sys.exit(-1)

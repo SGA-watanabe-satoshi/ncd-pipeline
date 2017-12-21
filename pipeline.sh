@@ -8,7 +8,7 @@ segment_table=$env.user_segment
 # Create new Classification table name by datetime
 new_classification_table=$(date -u +%Y%m%d_%H%M%S)_classification
 # Load Old Classification table name from DataStore
-old_classification_table=$(python ./bin/DatastoreUtil.py get)
+old_classification_table=$(python ./bin/ds_util.py get)
 diff_table="diff_classification"
 target_datastore=""
 gcp_project=""
@@ -62,12 +62,12 @@ WHERE \
 #
 # Step 4 Start DataFlow operation BigQuery(diff_table) to DataStore(user_classification)
 #
-python ./bin/UpdateClassification.py --input $diff_table --output $target_datastore --project $gcp_project
+python ./bin/update_classification.py --input $diff_table --output $target_datastore --project $gcp_project
 
 #
 # Step 5 Update current classification table name
 #
-python ./bin/DatastoreUtil.py set $new_classification_table
+python ./bin/ds_util.py set $new_classification_table
 
 #
 # Step 6 delete unnecessary tables

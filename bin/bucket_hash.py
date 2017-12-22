@@ -1,14 +1,19 @@
 #!/usr/bin/env python
 """ Print hashes for cloud storage buckets.
+
 Look at a cloud storage bucket (or buckets) and calculate a hash based
 on the metadata. If something in the bucket changes, then the hash will
 be different.
+
 The provided URLs can be a file pattern. The script will check all the
 files in the bucket against the pattern, and only consider files that
 match the pattern when calculating the hash.
+
 It is expected that the environment variable GOOGLE_PROJECT_ID is set.
+
 Usage:
     bucket_hash.py GS_URL...
+
 Options:
     -h, --help  Show this screen.
     --version   Show version.

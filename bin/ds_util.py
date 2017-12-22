@@ -63,7 +63,7 @@ if __name__ == '__main__':
                             help='Target entity property')
         parser.add_argument('--value',
                             dest='value',
-                            help='Target entity property')
+                            help='Value to save')
 
         args = parser.parse_args()
         cmd = args.cmd

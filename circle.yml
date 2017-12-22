@@ -1,0 +1,22 @@
+machine:
+  services:
+    - docker
+  environment:
+    DOCKER_REPO: quay.io/sonyusrd_adr/
+
+dependencies:
+  pre:
+    - git clone git@github.com:sstephenson/bats.git $HOME/bats
+  post:
+    - ./docker_build.sh
+
+test:
+  override:
+    - cd test && bash ./test.sh
+
+deployment:
+  hub:
+    branch: /.*/
+    commands:
+      - sed "s/<EMAIL>/$DOCKER_EMAIL/;s/<AUTH>/$DOCKER_AUTH/" < dockercfg.template > ~/.dockercfg
+      - docker push ${DOCKER_REPO}ncd-pipeline

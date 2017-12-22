@@ -4,23 +4,16 @@
 set -eo pipefail
 
 ### from ENV parameters (sample)
-GOOGLE_PROJECT_ID="ace-ripsaw-671"
-BIGQUERY_DATASET="watanabe_dataset"
-DATASTORE_NAMESPACE="watanabe"
-INPUT_FILES="gs://classification-data/*/*.gz,gs://classification-data-2/*/*.gz,gs://classification-data-4/*/*.txt,gs://classification-data-data-on-demand/*/*.gz"
+# GOOGLE_PROJECT_ID="ace-ripsaw-671"
+# BIGQUERY_DATASET="watanabe_dataset"
+# DATASTORE_NAMESPACE="watanabe"
+# INPUT_FILES="gs://classification-data/*/*.gz,gs://classification-data-2/*/*.gz,gs://classification-data-4/*/*.txt,gs://classification-data-data-on-demand/*/*.gz"
 
-# It is important that the following directory is added as a data volume.
-HASH_PATH="/var/opt/cd-pipeline/input-files-hash"
+# Fixed values
 DATASTORE_KIND="user_classification"
-DATASTORE_LAST_TABLE_KEY="name_of_last_proc_table"
+DATASTORE_LAST_PROC_KEY="classification_last_proc_info"
+DATASTORE_LAST_HASH_PROP="lash_hash"
 DATASTORE_LAST_TABLE_PROP="last_proc_table"
-
-# Get the old hash, if it exists
-get_old_hash() {
-    if [ -f $HASH_PATH ]; then
-        cat $HASH_PATH
-    fi
-}
 
 # There are a number of options that are global and valid for any Dataflow
 # pipeline. This function translates environment variables into the exec.args
@@ -75,7 +68,7 @@ run_classifier_data_transfer_pipeline() {
     # Create new Classification table name by datetime
     local new_classification_table=$BIGQUERY_DATASET.$(date -u +%Y%m%d_%H%M%S)_classification
     # Load last Classification table name from DataStore
-    local last_classification_table_name = $(./bin/ds_util.py get --key=$DATASTORE_LAST_TABLE_KEY --namespace=$DATASTORE_NAMESPACE --kind=$DATASTORE_KIND --prop=$DATASTORE_LAST_TABLE_PROP)
+    local last_classification_table_name=$(ds_util.py get --key=$DATASTORE_LAST_PROC_KEY --namespace=$DATASTORE_NAMESPACE --kind=$DATASTORE_KIND --prop=$DATASTORE_LAST_TABLE_PROP)
     local last_classification_table=$BIGQUERY_DATASET.$last_classification_table_name
 
     # Use BlockingDataflowPipelineRunner by default so that the we wait for the
@@ -84,15 +77,16 @@ run_classifier_data_transfer_pipeline() {
     DATAFLOW_RUNNER=${DATAFLOW_RUNNER:-BlockingDataflowPipelineRunner}
     DATAFLOW_STREAMING=${DATAFLOW_STREAMING:-false}
 
-    ## Implement correctly later...
-    # if [ -z "$DATASTORE_NAMESPACE" -o -z "$INPUT_FILES" ]; then
-    #     echo "Missing required environment variable: Cannot start classifier data transfer pipeline" >&2
-    #     echo "  DATASTORE_NAMESPACE:   $DATASTORE_NAMESPACE" >&2
-    #     echo "  INPUT_FILES:           $INPUT_FILES" >&2
-    #     exit 1
-    # fi
+    if [ -z "$BIGQUERY_DATASET" -o -z "$DATASTORE_NAMESPACE" -o -z "$INPUT_FILES" ]; then
+        echo "Missing required environment variable: Cannot start classifier data transfer pipeline" >&2
+        echo "  BIGQUERY_DATASET:      $BIGQUERY_DATASET" >&2
+        echo "  DATASTORE_NAMESPACE:   $DATASTORE_NAMESPACE" >&2
+        echo "  INPUT_FILES:           $INPUT_FILES" >&2
+        exit 1
+    fi
 
-    old_hash=$(get_old_hash)
+    # load old hash value from DataStore
+    old_hash=$(ds_util.py get --key=$DATASTORE_LAST_PROC_KEY --namespace=$DATASTORE_NAMESPACE --kind=$DATASTORE_KIND --prop=$DATASTORE_LAST_HASH_PROP)
     # INPUT_FILES is a comma separated list of patterns. Replace the comma
     # with a space.
     new_hash=$(bucket_hash.py ${INPUT_FILES//,/ })
@@ -170,15 +164,15 @@ run_classifier_data_transfer_pipeline() {
 
         local exec_args=$(build_dataflow_exec_args)
         exec_args="$exec_args --input $diff_table --namespace=$DATASTORE_NAMESPACE"
-        python ./bin/update_classification.py $exec_args
+        python update_classification.py $exec_args
 
 
         #
         # Step 5: Save the segment files hash
         #
-        echo "Step 5: Save the segment files hash"
+        echo "Step 5: Update the segment files hash"
 
-        echo "$new_hash" > $HASH_PATH
+        ds_util.py set --key=$DATASTORE_LAST_PROC_KEY --namespace=$DATASTORE_NAMESPACE --kind=$DATASTORE_KIND --prop=$DATASTORE_LAST_HASH_PROP --value="$new_hash"
 
 
         #
@@ -186,7 +180,7 @@ run_classifier_data_transfer_pipeline() {
         #
         echo "Step 6: Update current classification table name"
 
-        ds_util.py set --key=$DATASTORE_LAST_TABLE_KEY --namespace=$DATASTORE_NAMESPACE --kind=$DATASTORE_KIND --prop=$DATASTORE_LAST_TABLE_PROP --value=$new_classification_table
+        ds_util.py set --key=$DATASTORE_LAST_PROC_KEY --namespace=$DATASTORE_NAMESPACE --kind=$DATASTORE_KIND --prop=$DATASTORE_LAST_TABLE_PROP --value=$new_classification_table
 
 
         #

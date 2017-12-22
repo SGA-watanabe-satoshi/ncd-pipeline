@@ -28,13 +28,13 @@ class ClassificationUpdateDoFn(beam.DoFn):
         logger.debug(element)
         try:
             if element.get('user_id') is not None:
-                if element.get('new_classes') and len(element.get('new_classes')):
+                if element.get('classes') and len(element.get('classes')):
                     # Upsert entity
                     key = self._client.key(self._kind, element.get('user_id'))
                     entity = datastore.Entity(key)
                     entity.update({
                         'user_id': element.get('user_id'),
-                        'classes': element.get('new_classes'),
+                        'classes': element.get('classes'),
                         'insert_time': datetime.now()
                     })
                     self._client.put(entity)

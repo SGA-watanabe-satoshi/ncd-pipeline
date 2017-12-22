@@ -137,8 +137,7 @@ run_classifier_data_transfer_pipeline() {
             SELECT \
                 `$new_classification_table`.user_id, \
                 `$last_classification_table`.ussr_id as old_user_id, \
-                `$new_classification_table`.classes as new_classes, \
-                `$last_classification_table`.classes as old_classes \
+                `$new_classification_table`.classes as classes \
             FROM `$last_classification_table` \
                 FULL OUTER JOIN `$new_classification_table` ON `$last_classification_table`.user_id = `$new_classification_table`.user_id \
             WHERE \
@@ -150,8 +149,7 @@ run_classifier_data_transfer_pipeline() {
             "SELECT \
                 `$new_classification_table`.user_id, \
                 null as old_user_id, \
-                `$new_classification_table`.classes as new_classes, \
-                [] as old_classes \
+                `$new_classification_table`.classes as classes \
             FROM `$new_classification_table`; \ 
             "
         fi
